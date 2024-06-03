@@ -1,0 +1,8 @@
+type Query {
+    checkPriorityDelivery(sku: String!): PriorityDeliveryInfo! @resolver(class: "Sigma\\PriorityDeliveryGraphql\\Model\\Resolver\\CheckPriorityDelivery")
+}
+
+type PriorityDeliveryInfo {
+    priorityEnabled: Boolean!
+    toolkit: String
+}
