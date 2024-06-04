@@ -3,22 +3,28 @@
 namespace Sigma\PriorityDeliveryGraphql\Model\Resolver;
 
 use Magento\Catalog\Api\ProductRepositoryInterface;
-use Magento\Framework\Exception\NoSuchEntityException;
-use Magento\Framework\GraphQl\Config\Element\Field;
+use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\GraphQl\Exception\GraphQlAuthorizationException;
 use Magento\Framework\GraphQl\Query\ResolverInterface;
+use Magento\Framework\GraphQl\Config\Element\Field;
 use Magento\Framework\GraphQl\Schema\Type\ResolveInfo;
-use Magento\Framework\GraphQl\Exception\GraphQlInputException;
-use Magento\Catalog\Api\Data\ProductInterface;
-use Magento\Framework\GraphQl\Query\Resolver\ContextInterface;
+use Magento\Quote\Api\CartRepositoryInterface;
+use Magento\Quote\Model\Quote\Item;
+use Magento\Quote\Model\QuoteIdMaskFactory;
 use Psr\Log\LoggerInterface;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Catalog\Api\Data\ProductInterface;
 
-class CheckPriorityDelivery implements ResolverInterface
+class CheckPriorityDeliveryCart implements \Magento\Framework\GraphQl\Query\ResolverInterface
 {
     /**
      * @var ProductRepositoryInterface
      */
     protected $productRepository;
+    /**
+     * @var CartRepositoryInterface
+     */
+    protected $cartRepository;
 
     /**
      * @var LoggerInterface
@@ -31,53 +37,74 @@ class CheckPriorityDelivery implements ResolverInterface
     protected $scopeConfig;
 
     /**
-     * CheckPriorityDelivery constructor.
+     * Mask Id
+     *
+     * @var QuoteIdMaskFactory
+     */
+    protected $quoteIdMaskFactory;
+
+    /**
+     * CheckPriorityDeliveryCart constructor.
      *
      * @param ProductRepositoryInterface $productRepository
-     * @param LoggerInterface $logger
-     * @param ScopeConfigInterface $scopeConfig
+     * @param CartRepositoryInterface    $cartRepository
+     * @param LoggerInterface            $logger
+     * @param ScopeConfigInterface       $scopeConfig
+     * @param QuoteIdMaskFactory         $quoteIdMaskFactory
      */
     public function __construct(
         ProductRepositoryInterface $productRepository,
+        CartRepositoryInterface    $cartRepository,
         LoggerInterface            $logger,
-        ScopeConfigInterface       $scopeConfig
+        ScopeConfigInterface       $scopeConfig,
+        QuoteIdMaskFactory         $quoteIdMaskFactory
     ) {
         $this->productRepository = $productRepository;
+        $this->cartRepository = $cartRepository;
         $this->logger = $logger;
         $this->scopeConfig = $scopeConfig;
+        $this->quoteIdMaskFactory = $quoteIdMaskFactory;
     }
 
     /**
      * @inheritdoc
      */
-    public function resolve(
-        Field       $field,
-        $context,
-        ResolveInfo $info,
-        array       $value = null,
-        array       $args = null
-    ) {
-        $sku = $args['sku'];
-        $this->logger->info("Checking priority delivery for SKU: $sku");
-
+    public function resolve(Field $field, $context, ResolveInfo $info, array $value = null, array $args = null)
+    {
+        $cartId = $args['cart_id'];
+        $this->logger->info("Checking priority delivery for cart: $cartId");
         try {
-            $product = $this->productRepository->get($sku);
-            $priorityEnabled = $this->isPriorityDeliveryEnabled($product);
-            $toolKitValue = $priorityEnabled ? $this->scopeConfig->
-            getValue('priority_delivery/priority_delivery_disable_time/tool_tip') : null;
+            $cart = $this->loadCart($cartId);
+            $cartItems = $cart->getAllVisibleItems();
 
+            foreach ($cartItems as $cartItem) {
+                $this->logger->info("Cart Item: " . $cartItem->getName());
+                    $product = $this->productRepository->getById($cartItem->getProductId());
+                $priorityEnabled = $this->isPriorityDeliveryEnabled($product);
+                $toolKitValue = $priorityEnabled ? $this->scopeConfig->
+                getValue('priority_delivery/priority_delivery_disable_time/tool_tip') : null;
+            }
             return [
                 'priorityEnabled' => $priorityEnabled,
                 'toolkit' => $toolKitValue
             ];
-        } catch (NoSuchEntityException $e) {
-            $this->logger->info("Product with SKU $sku not found.");
-            throw new GraphQlInputException(__('Product with SKU %1 not found.', $sku));
         } catch (\Exception $e) {
             $this->logger->error("An error occurred while checking priority
-            delivery for SKU $sku: " . $e->getMessage());
-            return false;
+            delivery for cart $cartId: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Load cart by its ID.
+     *
+     * @param int|string $cartId The ID of the cart to load.
+     * @return \Magento\Quote\Model\Quote The loaded cart.
+     */
+    protected function loadCart($cartId)
+    {
+        $quoteIdMask = $this->quoteIdMaskFactory->create()->load($cartId, 'masked_id');
+        $cartId = $quoteIdMask->getQuoteId();
+        return $this->cartRepository->get($cartId);
     }
 
     /**
@@ -88,8 +115,9 @@ class CheckPriorityDelivery implements ResolverInterface
      */
     protected function isPriorityDeliveryEnabled(ProductInterface $product): bool
     {
-        $priority = $product->getData('priority');
-        $this->logger->info("Priority value: $priority");
+
+        $priority = $product->getData('priority_shipping');
+        $this->logger->info("Priority value:" . $priority);
 
         $currentDayOfWeek = date('w');
         $currentTime = strtotime(date('H:i'));
@@ -97,10 +125,10 @@ class CheckPriorityDelivery implements ResolverInterface
         $this->logger->info("Current day: $currentDayOfWeek");
         $this->logger->info("Current time: " . date('H:i'));
 
-        $fromWeekdays = explode(',', $this->scopeConfig->
-        getValue('priority_delivery/priority_delivery_disable_time/from_weekdays'));
-        $toWeekdays = explode(',', $this->scopeConfig->
-        getValue('priority_delivery/priority_delivery_disable_time/to_weekdays'));
+        $fromWeekdays = explode(',', $this->
+        scopeConfig->getValue('priority_delivery/priority_delivery_disable_time/from_weekdays'));
+        $toWeekdays = explode(',', $this->
+        scopeConfig->getValue('priority_delivery/priority_delivery_disable_time/to_weekdays'));
 
         $this->logger->info("Fetched From Weekdays: " . implode(', ', $fromWeekdays));
         $this->logger->info("Fetched To Weekdays: " . implode(', ', $toWeekdays));
@@ -128,6 +156,7 @@ class CheckPriorityDelivery implements ResolverInterface
             && $currentTime == $toTime) {
             return false;
         }
+
         return true;
     }
 }

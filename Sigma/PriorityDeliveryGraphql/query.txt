@@ -1,0 +1,21 @@
+Query for pdp page of priority delivery
+
+query {
+  checkPriorityDelivery(sku: "616453264113") {
+    priorityEnabled
+    toolkit
+  }
+}
+
+
+Query for Cart Page of priority delivery
+query {
+  checkPriorityDeliveryCart(cartId: "1N6wmVgRs9OVCrhS6OEYTroFiO0HGtcI") {
+    priorityEnabled
+    toolkit
+  }
+}
+
+
+
+

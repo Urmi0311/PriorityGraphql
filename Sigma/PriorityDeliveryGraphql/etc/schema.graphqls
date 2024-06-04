@@ -1,8 +1,12 @@
 type Query {
     checkPriorityDelivery(sku: String!): PriorityDeliveryInfo! @resolver(class: "Sigma\\PriorityDeliveryGraphql\\Model\\Resolver\\CheckPriorityDelivery")
+    checkPriorityDeliveryCart(cartId: String!): PriorityDeliveryInfo! @resolver(class: "Sigma\\PriorityDeliveryGraphql\\Model\\Resolver\\CheckPriorityDeliveryCart") @doc(description: "Check priority delivery status for products in the cart")
+
 }
 
 type PriorityDeliveryInfo {
     priorityEnabled: Boolean!
     toolkit: String
 }
+
+
