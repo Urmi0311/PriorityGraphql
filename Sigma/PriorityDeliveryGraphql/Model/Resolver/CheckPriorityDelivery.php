@@ -15,10 +15,28 @@ use Magento\Framework\App\Config\ScopeConfigInterface;
 
 class CheckPriorityDelivery implements ResolverInterface
 {
+    /**
+     * @var ProductRepositoryInterface
+     */
     protected $productRepository;
+
+    /**
+     * @var LoggerInterface
+     */
     protected $logger;
+
+    /**
+     * @var ScopeConfigInterface
+     */
     protected $scopeConfig;
 
+    /**
+     * CheckPriorityDelivery constructor.
+     *
+     * @param ProductRepositoryInterface $productRepository
+     * @param LoggerInterface $logger
+     * @param ScopeConfigInterface $scopeConfig
+     */
     public function __construct(
         ProductRepositoryInterface $productRepository,
         LoggerInterface            $logger,
@@ -47,7 +65,8 @@ class CheckPriorityDelivery implements ResolverInterface
         try {
             $product = $this->productRepository->get($sku);
             $priorityEnabled = $this->isPriorityDeliveryEnabled($product);
-            $toolKitValue = $priorityEnabled ? $this->scopeConfig->getValue('priority_delivery/priority_delivery_disable_time/tool_tip') : null;
+            $toolKitValue = $priorityEnabled ? $this->scopeConfig->
+            getValue('priority_delivery/priority_delivery_disable_time/tool_tip') : null;
 
             return [
                 'priorityEnabled' => $priorityEnabled,
@@ -57,13 +76,15 @@ class CheckPriorityDelivery implements ResolverInterface
             $this->logger->info("Product with SKU $sku not found.");
             throw new GraphQlInputException(__('Product with SKU %1 not found.', $sku));
         } catch (\Exception $e) {
-            $this->logger->error("An error occurred while checking priority delivery for SKU $sku: " . $e->getMessage());
+            $this->logger->error("An error occurred while checking priority
+            delivery for SKU $sku: " . $e->getMessage());
             return false;
         }
     }
 
     /**
      * Check if Priority Delivery is enabled for the product
+     *
      * @param ProductInterface $product
      * @return bool
      */
@@ -72,21 +93,22 @@ class CheckPriorityDelivery implements ResolverInterface
         $priority = $product->getData('priority');
         $this->logger->info("Priority value: $priority");
 
-
         $currentDayOfWeek = date('w');
         $currentTime = strtotime(date('H:i'));
 
         $this->logger->info("Current day: $currentDayOfWeek");
         $this->logger->info("Current time: " . date('H:i'));
 
-        $fromWeekdays = explode(',', $this->scopeConfig->getValue('priority_delivery/priority_delivery_disable_time/from_weekdays'));
-        $toWeekdays = explode(',', $this->scopeConfig->getValue('priority_delivery/priority_delivery_disable_time/to_weekdays'));
+        $fromWeekdays = explode(',', $this->scopeConfig->
+        getValue('priority_delivery/priority_delivery_disable_time/from_weekdays'));
+        $toWeekdays = explode(',', $this->scopeConfig->
+        getValue('priority_delivery/priority_delivery_disable_time/to_weekdays'));
 
         $this->logger->info("Fetched From Weekdays: " . implode(', ', $fromWeekdays));
         $this->logger->info("Fetched To Weekdays: " . implode(', ', $toWeekdays));
 
-        $fromTimeStr = $this->scopeConfig->getValue('priority_delivery/priority_delivery_disable_time/from_time', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-        $toTimeStr = $this->scopeConfig->getValue('priority_delivery/priority_delivery_disable_time/to_time', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+        $fromTimeStr = $this->scopeConfig->getValue('priority_delivery/priority_delivery_disable_time/from_time');
+        $toTimeStr = $this->scopeConfig->getValue('priority_delivery/priority_delivery_disable_time/to_time');
 
         $this->logger->info("Fetched From Time: $fromTimeStr");
         $this->logger->info("Fetched To Time: $toTimeStr");
@@ -94,18 +116,20 @@ class CheckPriorityDelivery implements ResolverInterface
         $fromTimeParts = explode(',', $fromTimeStr);
         $toTimeParts = explode(',', $toTimeStr);
 
-        $fromTimeFormatted = sprintf('%02d:%02d:%02d', $fromTimeParts[0], $fromTimeParts[1], $fromTimeParts[2]);
-        $toTimeFormatted = sprintf('%02d:%02d:%02d', $toTimeParts[0], $toTimeParts[1], $toTimeParts[2]);
+        $fromTimeFormatted = sprintf('%02d:%02d', $fromTimeParts[0], $fromTimeParts[1]);
+        $toTimeFormatted = sprintf('%02d:%02d', $toTimeParts[0], $toTimeParts[1]);
 
-        $fromTime = strtotime('TODAY ' . $fromTimeFormatted);
-        $toTime = strtotime('TODAY ' . $toTimeFormatted);
+        $fromTime = strtotime($fromTimeFormatted);
+        $toTime = strtotime($toTimeFormatted);
 
-        $this->logger->info("Configured range: From " . date('H:i', $fromTime) . " to " . date('H:i', $toTime) . " on " . implode(',', $fromWeekdays));
+        $this->logger->info("Configured range: From " . date('H:i', $fromTime) .
+            " to " . date('H:i', $toTime) . " on " . implode(',', $fromWeekdays));
 
-        if ($priority == 0 && in_array($currentDayOfWeek, $fromWeekdays) && in_array($currentDayOfWeek, $toWeekdays) && $currentTime >= $fromTime && $currentTime <= $toTime) {
+        if ($priority == 0 && in_array($currentDayOfWeek, $fromWeekdays) &&
+            in_array($currentDayOfWeek, $toWeekdays) && $currentTime == $fromTime
+            && $currentTime == $toTime) {
             return false;
         }
         return true;
     }
-
 }
