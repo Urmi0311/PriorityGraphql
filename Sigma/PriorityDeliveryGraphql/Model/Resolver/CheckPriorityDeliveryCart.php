@@ -71,7 +71,7 @@ class CheckPriorityDeliveryCart implements \Magento\Framework\GraphQl\Query\Reso
      */
     public function resolve(Field $field, $context, ResolveInfo $info, array $value = null, array $args = null)
     {
-        $cartId = $args['cart_id'];
+        $cartId = $args['cartId'];
         $this->logger->info("Checking priority delivery for cart: $cartId");
         try {
             $cart = $this->loadCart($cartId);
