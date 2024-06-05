@@ -13,6 +13,7 @@ use Magento\Framework\GraphQl\Query\Resolver\ContextInterface;
 use Psr\Log\LoggerInterface;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 
+
 class CheckPriorityDelivery implements ResolverInterface
 {
     /**
@@ -92,10 +93,12 @@ class CheckPriorityDelivery implements ResolverInterface
         $this->logger->info("Priority value: $priority");
 
         $currentDayOfWeek = date('w');
-        $currentTime = strtotime(date('H:i'));
+        $nzTimeZone = new \DateTimeZone('Pacific/Auckland');
+        $dateTime = new \DateTime('now', $nzTimeZone);
+        $currentTime = $dateTime->format('H:i');
 
         $this->logger->info("Current day: $currentDayOfWeek");
-        $this->logger->info("Current time: " . date('H:i'));
+        $this->logger->info("Current time: " . $currentTime);
 
         $fromWeekdays = explode(',', $this->scopeConfig->
         getValue('priority_delivery/priority_delivery_disable_time/from_weekdays'));
@@ -120,8 +123,8 @@ class CheckPriorityDelivery implements ResolverInterface
         $fromTime = strtotime($fromTimeFormatted);
         $toTime = strtotime($toTimeFormatted);
 
-        $this->logger->info("Configured range: From " . date('H:i', $fromTime) .
-            " to " . date('H:i', $toTime) . " on " . implode(',', $fromWeekdays));
+        $this->logger->info("Configured range: From " . date('H:i:s', $fromTime) .
+            " to " . date('H:i:s', $toTime) . " on " . implode(',', $fromWeekdays));
 
         if ($priority == 0 && in_array($currentDayOfWeek, $fromWeekdays) &&
             in_array($currentDayOfWeek, $toWeekdays) && $currentTime == $fromTime

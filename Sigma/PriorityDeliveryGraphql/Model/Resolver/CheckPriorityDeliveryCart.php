@@ -120,10 +120,12 @@ class CheckPriorityDeliveryCart implements \Magento\Framework\GraphQl\Query\Reso
         $this->logger->info("Priority value:" . $priority);
 
         $currentDayOfWeek = date('w');
-        $currentTime = strtotime(date('H:i'));
+        $nzTimeZone = new \DateTimeZone('Pacific/Auckland');
+        $dateTime = new \DateTime('now', $nzTimeZone);
+        $currentTime = $dateTime->format('H:i:s');
 
         $this->logger->info("Current day: $currentDayOfWeek");
-        $this->logger->info("Current time: " . date('H:i'));
+        $this->logger->info("Current time: " . $currentTime);
 
         $fromWeekdays = explode(',', $this->
         scopeConfig->getValue('priority_delivery/priority_delivery_disable_time/from_weekdays'));
@@ -148,8 +150,8 @@ class CheckPriorityDeliveryCart implements \Magento\Framework\GraphQl\Query\Reso
         $fromTime = strtotime($fromTimeFormatted);
         $toTime = strtotime($toTimeFormatted);
 
-        $this->logger->info("Configured range: From " . date('H:i', $fromTime) .
-            " to " . date('H:i', $toTime) . " on " . implode(',', $fromWeekdays));
+        $this->logger->info("Configured range: From " . date('H:i:s', $fromTime) .
+            " to " . date('H:i:s', $toTime) . " on " . implode(',', $fromWeekdays));
 
         if ($priority == 0 && in_array($currentDayOfWeek, $fromWeekdays) &&
             in_array($currentDayOfWeek, $toWeekdays) && $currentTime == $fromTime
